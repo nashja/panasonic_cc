@@ -3,6 +3,7 @@
 import asyncio
 import logging
 from datetime import timedelta
+import datetime
 
 from aiohttp import ClientResponseError
 from homeassistant.components.persistent_notification import async_create
@@ -10,7 +11,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.helpers.entity import DeviceInfo
 
-from aio_panasonic_comfort_cloud import ApiClient, HwsDevice, HwsConsumption, PanasonicDeviceInfo, constants
+from aio_panasonic_comfort_cloud import (
+    ApiClient,
+    HwsDevice,
+    HwsConsumption,
+    PanasonicDeviceInfo,
+    constants,
+)
 
 from ..const import (
     DEFAULT_DEVICE_FETCH_INTERVAL,
@@ -247,6 +254,7 @@ class HwsDeviceCoordinator(DataUpdateCoordinator[int]):
 
         self._refresh_task = self.hass.async_create_task(_delayed_refresh())
 
+
 class HwsConsumptionCoordinator(DataUpdateCoordinator[int]):
     """Aquarea energy consumption data coordinator (today's heat/cool/tank consumption+cost)."""
 
@@ -298,41 +306,38 @@ class HwsConsumptionCoordinator(DataUpdateCoordinator[int]):
 
     @property
     def device_id(self) -> str:
-        """Return the device ID.
-
-        Uses ``.guid``, matching ``AquareaDeviceCoordinator.device_id`` —
-        keeps these energy entities attached to the same HA device entry as
-        the rest of the Aquarea unit's entities.
-        """
-        return self._device_info.guid or self._device_info.id
-
-    @property
-    def consumption(self) -> HwsConsumption | None:
-        """Return today's consumption data."""
-        return self._consumption
+        """Return the device ID."""
+        return self._device_info.id
 
     @property
     def device_info(self) -> DeviceInfo:
         """Return device information."""
         return DeviceInfo(
-            identifiers={(DOMAIN, self.device_id)},
+            identifiers={(DOMAIN, self._device_info.id)},
             manufacturer=MANUFACTURER,
             model=self._device_info.model,
             name=self._device_info.name,
             sw_version=self._api_client.app_version,
         )
 
+    @property
+    def consumption(self) -> HwsConsumption | None:
+        """Return today's consumption data."""
+        return self._consumption
+
     async def _async_update_data(self) -> int:
         """Fetch today's consumption data from the API."""
         if self._auth_failed:
             raise UpdateFailed("Authentication failed — coordinator disabled")
 
-        today = datetime.now().strftime("%Y%m%d")
+        today = datetime.datetime.now().strftime("%Y%m%d")
         try:
-            todays_entry = await self._api_client.async_get_hws_consumption(self.device_info)
-            #todays_entry = next(
+            todays_entry = await self._api_client.async_get_hws_consumption(
+                self._device_info
+            )
+            # todays_entry = next(
             #    (entry for entry in entries if entry.data_time == today), None
-            #)
+            # )
             if todays_entry is not None:
                 self._consumption = todays_entry
                 self._update_id += 1
@@ -346,7 +351,9 @@ class HwsConsumptionCoordinator(DataUpdateCoordinator[int]):
                     exc_info=True,
                 )
                 _create_auth_expired_notification(self.hass)
-                raise UpdateFailed("Authentication failed — coordinator disabled") from err
+                raise UpdateFailed(
+                    "Authentication failed — coordinator disabled"
+                ) from err
             self._handle_failure(err)
             friendly = classify_error(err)
             raise UpdateFailed(f"{friendly.title}: {friendly.message}") from err
@@ -368,7 +375,7 @@ class HwsConsumptionCoordinator(DataUpdateCoordinator[int]):
         """Handle API failure with exponential backoff."""
         self._consecutive_failures += 1
         new_interval = min(
-            self._base_interval * (BACKOFF_MULTIPLIER ** self._consecutive_failures),
+            self._base_interval * (BACKOFF_MULTIPLIER**self._consecutive_failures),
             MAX_UPDATE_INTERVAL,
         )
         self.update_interval = timedelta(seconds=new_interval)

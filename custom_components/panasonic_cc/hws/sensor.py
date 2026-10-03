@@ -1,4 +1,5 @@
 """HWS (standalone Heat Pump Hot Water tank) sensor entities."""
+
 from collections.abc import Callable
 from dataclasses import dataclass
 import logging
@@ -22,7 +23,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from ..const import DOMAIN
 from .base import HwsDataEntity, HwsEnergyEntity
 from .coordinator import HwsDeviceCoordinator, HwsConsumptionCoordinator
-from .const import HWS_COORDINATORS,HWS_ENERGY_COORDINATORS
+from .const import HWS_COORDINATORS, HWS_ENERGY_COORDINATORS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,6 +31,7 @@ _LOGGER = logging.getLogger(__name__)
 @dataclass(frozen=True, kw_only=True)
 class HwsSensorEntityDescription(SensorEntityDescription):
     """Describes HWS sensor entity."""
+
     get_state: Callable[[HwsDevice], Any]
 
 
@@ -53,7 +55,7 @@ HWS_OUTSIDE_TEMPERATURE_DESCRIPTION = HwsSensorEntityDescription(
     state_class=SensorStateClass.MEASUREMENT,
     native_unit_of_measurement=UnitOfTemperature.CELSIUS,
     get_state=lambda device: device.parameters.outdoor_temperature,
-    is_available=lambda device: device.parameters.outdoor_temperature is not None,
+    # is_available=lambda device: device.parameters.outdoor_temperature is not None,
 )
 
 HWS_HPU_STATUS_DESCRIPTION = HwsSensorEntityDescription(
@@ -82,19 +84,24 @@ HWS_OPERATION_MODE_DESCRIPTION = HwsSensorEntityDescription(
 )
 
 # Connection status sensor options
-HWS_CONNECTION_STATUS_OPTIONS = ["connected", "degraded", "disconnected", "authentication_error"]
+HWS_CONNECTION_STATUS_OPTIONS = [
+    "connected",
+    "degraded",
+    "disconnected",
+    "authentication_error",
+]
 
 
 # Energy consumption sensor descriptions for Aquarea, backed by AquareaConsumptionCoordinator
 @dataclass(frozen=True, kw_only=True)
 class HwsEnergySensorEntityDescription(SensorEntityDescription):
     """Describes Aquarea energy sensor entity."""
+
     get_state: Callable[[HwsConsumption], Any]
     exists_fn: Callable[[HwsDeviceCoordinator], bool] = lambda _: True
 
 
 HWS_ENERGY_SENSORS = [
-
     HwsEnergySensorEntityDescription(
         key="tank_accumulated_energy_consumption",
         translation_key="tank_accumulated_energy_consumption",
@@ -104,7 +111,7 @@ HWS_ENERGY_SENSORS = [
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         suggested_display_precision=2,
         get_state=lambda entry: entry.tank_consumption,
-        #exists_fn=lambda coordinator: coordinator.device.parameters.has_tank,
+        # exists_fn=lambda coordinator: coordinator.device.parameters.has_tank,
     )
 ]
 HWS_COST_SENSORS = [
@@ -117,28 +124,38 @@ HWS_COST_SENSORS = [
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=False,
         get_state=lambda entry: entry.tank_cost,
-        #exists_fn=lambda coordinator: coordinator.device.parameters.has_tank,
+        # exists_fn=lambda coordinator: coordinator.device.parameters.has_tank,
     ),
 ]
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities
+):
     """Set up the HWS sensors."""
 
     entities = []
     hws_coordinators: list[HwsDeviceCoordinator] = hass.data[DOMAIN][HWS_COORDINATORS]
-    energy_coordinators: list[HwsConsumptionCoordinator] = hass.data[DOMAIN].get(HWS_ENERGY_COORDINATORS, [])
+    energy_coordinators: list[HwsConsumptionCoordinator] = hass.data[DOMAIN].get(
+        HWS_ENERGY_COORDINATORS, []
+    )
 
     for coordinator in hws_coordinators:
-        entities.append(HwsSensorEntity(coordinator, HWS_OUTSIDE_TEMPERATURE_DESCRIPTION))
+        entities.append(
+            HwsSensorEntity(coordinator, HWS_OUTSIDE_TEMPERATURE_DESCRIPTION)
+        )
         entities.append(HwsSensorEntity(coordinator, HWS_TANK_TEMPERATURE_DESCRIPTION))
         entities.append(HwsSensorEntity(coordinator, HWS_HPU_STATUS_DESCRIPTION))
-        entities.append(HwsSensorEntity(coordinator, HWS_OPERATION_MODE_DESCRIPTION))        
+        entities.append(HwsSensorEntity(coordinator, HWS_OPERATION_MODE_DESCRIPTION))
         entities.append(HwsConnectionStatusSensor(coordinator))
 
-    hws_by_id = {coordinator.device_id: coordinator for coordinator in hws_coordinators}
+    hws_by_id = {
+        coordinator._device_info.id: coordinator for coordinator in hws_coordinators
+    }
     for energy_coordinator in energy_coordinators:
-        device_coordinator = hws_by_id.get(energy_coordinator.device_id)
+        device_coordinator = hws_by_id.get(
+            energy_coordinator._device_info.id, 0
+        )  # FIXME?
         if device_coordinator is None:
             continue
         for desc in HWS_ENERGY_SENSORS:
@@ -150,19 +167,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
     async_add_entities(entities)
 
+
 class HwsSensorEntity(HwsDataEntity, SensorEntity):
     """Representation of an HWS sensor."""
 
     entity_description: HwsSensorEntityDescription  # type: ignore[reportIncompatibleVariableOverride]
 
-    def __init__(self, coordinator: HwsDeviceCoordinator, description: HwsSensorEntityDescription):
+    def __init__(
+        self, coordinator: HwsDeviceCoordinator, description: HwsSensorEntityDescription
+    ):
         """Initialize the sensor."""
         self.entity_description = description  # type: ignore[reportIncompatibleVariableOverride]
         super().__init__(coordinator, description.key)
 
     def _async_update_attrs(self) -> None:
         """Update the attributes of the sensor."""
-        self._attr_native_value = self.entity_description.get_state(self.coordinator.device)
+        self._attr_native_value = self.entity_description.get_state(
+            self.coordinator.device
+        )
 
 
 class HwsEnergySensorEntity(HwsEnergyEntity, SensorEntity, RestoreEntity):
@@ -182,13 +204,19 @@ class HwsEnergySensorEntity(HwsEnergyEntity, SensorEntity, RestoreEntity):
         self._attr_native_unit_of_measurement = description.native_unit_of_measurement
         self._attr_suggested_display_precision = description.suggested_display_precision
         self._attr_entity_category = description.entity_category
-        self._attr_entity_registry_enabled_default = description.entity_registry_enabled_default
+        self._attr_entity_registry_enabled_default = (
+            description.entity_registry_enabled_default
+        )
         super().__init__(coordinator, description.key)
 
     async def async_added_to_hass(self) -> None:
         """Restore value from previous session."""
         restored = await self.async_get_last_state()
-        if restored is not None and restored.state not in (None, "unknown", "unavailable"):
+        if restored is not None and restored.state not in (
+            None,
+            "unknown",
+            "unavailable",
+        ):
             try:
                 self._attr_native_value = float(restored.state)
             except ValueError:

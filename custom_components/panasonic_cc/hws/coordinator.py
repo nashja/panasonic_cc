@@ -2,15 +2,14 @@
 
 import asyncio
 import logging
-from datetime import timedelta
-import datetime
+from datetime import timedelta, datetime
 
 from aiohttp import ClientResponseError
 from homeassistant.components.persistent_notification import async_create
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.helpers.entity import DeviceInfo
-
+from homeassistant.util import dt as dt_util
 from aio_panasonic_comfort_cloud import (
     ApiClient,
     HwsDevice,
@@ -329,15 +328,10 @@ class HwsConsumptionCoordinator(DataUpdateCoordinator[int]):
         """Fetch today's consumption data from the API."""
         if self._auth_failed:
             raise UpdateFailed("Authentication failed — coordinator disabled")
-
-        today = datetime.datetime.now().strftime("%Y%m%d")
         try:
             todays_entry = await self._api_client.async_get_hws_consumption(
                 self._device_info
             )
-            # todays_entry = next(
-            #    (entry for entry in entries if entry.data_time == today), None
-            # )
             if todays_entry is not None:
                 self._consumption = todays_entry
                 self._update_id += 1

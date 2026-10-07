@@ -6,7 +6,7 @@ import logging
 from typing import Any
 
 from aio_panasonic_comfort_cloud import HwsDevice
-from aio_panasonic_comfort_cloud.constants import AquareaOperationStatus
+from aio_panasonic_comfort_cloud.constants import HwsOperationStatus
 from aio_panasonic_comfort_cloud.models.hws import HwsConsumption
 
 from homeassistant.const import UnitOfTemperature, EntityCategory, UnitOfEnergy
@@ -64,7 +64,7 @@ HWS_HPU_STATUS_DESCRIPTION = HwsSensorEntityDescription(
     name="Heat Pump Status",
     icon="mdi:heat-pump",
     device_class=SensorDeviceClass.ENUM,
-    options=[status.name for status in AquareaOperationStatus],
+    options=[status.name for status in HwsOperationStatus],
     entity_category=EntityCategory.DIAGNOSTIC,
     get_state=lambda device: device.parameters.hpu_operation_status.name,
 )

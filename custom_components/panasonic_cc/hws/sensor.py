@@ -58,6 +58,17 @@ HWS_OUTSIDE_TEMPERATURE_DESCRIPTION = HwsSensorEntityDescription(
     # is_available=lambda device: device.parameters.outdoor_temperature is not None,
 )
 
+HWS_BOOST_MODE_STATUS_DESCRIPTION = HwsSensorEntityDescription(
+    key="boost_mode_status",
+    translation_key="boost_mode_status",
+    name="Boost Mode Status",
+    icon="mdi:arrow-up-circle",
+    # device_class=SensorDeviceClass.ENUM,
+    # options=[status.name for status in HwsOperationStatus],
+    entity_category=EntityCategory.DIAGNOSTIC,
+    get_state=lambda device: device.parameters.boost_mode.name,
+)
+
 HWS_HPU_STATUS_DESCRIPTION = HwsSensorEntityDescription(
     key="hpu_operation_status",
     translation_key="hpu_operation_status",
@@ -80,7 +91,7 @@ HWS_OPERATION_MODE_DESCRIPTION = HwsSensorEntityDescription(
     icon="mdi:cog",
     entity_category=EntityCategory.DIAGNOSTIC,
     entity_registry_enabled_default=False,
-    get_state=lambda device: device.parameters.operation_mode,
+    get_state=lambda device: device.parameters.operation_mode.name,
 )
 
 # Connection status sensor options
@@ -147,6 +158,7 @@ async def async_setup_entry(
         entities.append(HwsSensorEntity(coordinator, HWS_TANK_TEMPERATURE_DESCRIPTION))
         entities.append(HwsSensorEntity(coordinator, HWS_HPU_STATUS_DESCRIPTION))
         entities.append(HwsSensorEntity(coordinator, HWS_OPERATION_MODE_DESCRIPTION))
+        entities.append(HwsSensorEntity(coordinator, HWS_BOOST_MODE_STATUS_DESCRIPTION))
         entities.append(HwsConnectionStatusSensor(coordinator))
 
     hws_by_id = {

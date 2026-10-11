@@ -6,7 +6,10 @@ import logging
 from typing import Any
 
 from aio_panasonic_comfort_cloud import HwsDevice
-from aio_panasonic_comfort_cloud.constants import HwsOperationStatus
+from aio_panasonic_comfort_cloud.constants import (
+    HwsOperationStatus,
+    HwsDailyModeSettings,
+)
 from aio_panasonic_comfort_cloud.models.hws import HwsConsumption
 
 from homeassistant.const import UnitOfTemperature, EntityCategory, UnitOfEnergy
@@ -160,6 +163,7 @@ async def async_setup_entry(
         entities.append(HwsSensorEntity(coordinator, HWS_OPERATION_MODE_DESCRIPTION))
         entities.append(HwsSensorEntity(coordinator, HWS_BOOST_MODE_STATUS_DESCRIPTION))
         entities.append(HwsConnectionStatusSensor(coordinator))
+        entities.append(HwsWeeklySettingsSensor(coordinator))
 
     hws_by_id = {
         coordinator._device_info.id: coordinator for coordinator in hws_coordinators
@@ -277,5 +281,45 @@ class HwsConnectionStatusSensor(HwsDataEntity, SensorEntity):
             attrs["last_error_recoverable"] = err.is_recoverable
             if err.suggestion:
                 attrs["last_error_suggestion"] = err.suggestion
+
+        self._attr_extra_state_attributes = attrs
+
+
+HWS_SCHEDULE_MODE_OPTIONS = [
+    "Timer",
+    "Continuous",
+]
+
+
+class HwsWeeklySettingsSensor(HwsDataEntity, SensorEntity):
+    """Sensor that reports the weekly schedule operation mode HWS device."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "monday_schedule_mode"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = HWS_SCHEDULE_MODE_OPTIONS  # HwsDailyModeSettings
+    _attr_icon = "mdi:network"
+
+    def __init__(self, coordinator: HwsDeviceCoordinator) -> None:
+        """Initialize the monday schedule mode sensor."""
+        super().__init__(coordinator, "monday_schedule_mode")
+        self._attr_unique_id = f"{coordinator.device_id}-monday_schedule_mode"
+
+    def _async_update_attrs(self) -> None:
+        """Update the attributes of the sensor."""
+        params = self.coordinator.device.parameters
+        self._attr_native_value = params.weeklySettings[0].mode.name
+
+        attrs = {
+            "weekday": params.weeklySettings[0].weekday.value,
+            "set1_start_time": params.weeklySettings[0].set1.startTime,
+            "set1_end_time": params.weeklySettings[0].set1.endTime,
+            "set2_available": params.weeklySettings[0].set2.set2_available,
+            "set2_start_time": params.weeklySettings[0].set2.startTime,
+            "set2_end_time": params.weeklySettings[0].set2.endTime,
+            "set2_start_temp": params.weeklySettings[0].set2.start_temperature,
+            "set2_end_temp": params.weeklySettings[0].set2.end_temperature,
+        }
 
         self._attr_extra_state_attributes = attrs

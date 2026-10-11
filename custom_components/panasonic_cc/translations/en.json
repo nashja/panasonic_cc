@@ -216,6 +216,9 @@
       "energy_consumption": {
         "name": "Consumption"
       },
+      "monday_schedule_mode": {
+        "name" : "Monday Schedule"
+      },
       "connection_status": {
         "name": "Connection Status",
         "state": {
